@@ -334,18 +334,8 @@
      ⚙️ CONFIG — edit these three things before you publish
      ===================================================================== */
 
-  // 1) Paste your Google Form's submission URL (see README) — it ends in /formResponse.
-  var FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLSegySI7MHQIzZo0qr0iamJ7P3XmPzJApIAl9aVrJf9Oe1Y0dQ/formResponse";
-
-  // 1b) Paste the entry.XXXXXXXX ID for each question (see README for how to find these).
-  var ENTRY_IDS = {
-    region:    "entry.199510052",
-    problem:   "entry.1440823431",
-    challenge: "entry.561344578",
-    improve:   "entry.414403160",
-    support:   "entry.899151143",
-    rating:    "entry.1143322657"
-  };
+  // 1) Paste your Sheet Monkey form endpoint here (see README).
+  var SHEETMONKEY_ENDPOINT = "https://api.sheetmonkey.io/form/seqXZtVoaxgR19jbPxsNpB";
 
   // 2) Match these to your actual regions — order shown = order on screen.
   var REGIONS = ["NCR + UK", "UP", "South", "Rajasthan", "PB + J&K", "Maharashtra", "MP + CG", "Bihar + JH", "Delhi + HR", "Gujarat", "AP + TS"];
@@ -558,59 +548,33 @@
     chit.style.animation = "";
 
     var answers = {
-      region: responses.region || "",
-      problem: responses.problem || "",
-      challenge: responses.challenge || "",
-      improve: responses.improve || "",
-      support: responses.support || "",
-      rating: responses.rating || ""
+      Timestamp: "x-sheetmonkey-current-date-time", // Sheet Monkey auto-converts this to a real date/time
+      Region: responses.region || "",
+      "Biggest problem": responses.problem || "",
+      Challenge: responses.challenge || "",
+      Improvement: responses.improve || "",
+      "Support needed": responses.support || "",
+      "Support rating (1-5)": responses.rating || ""
     };
 
-    if(!FORM_ACTION_URL || FORM_ACTION_URL.indexOf("PASTE_YOUR") === 0){
-      console.warn("Maan ki Baat: FORM_ACTION_URL not configured yet — response not sent.", answers);
+    if(!SHEETMONKEY_ENDPOINT || SHEETMONKEY_ENDPOINT.indexOf("PASTE_YOUR") === 0){
+      console.warn("Maan ki Baat: SHEETMONKEY_ENDPOINT not configured yet — response not sent.", answers);
       submitting = false;
       return;
     }
 
-    var body = new URLSearchParams();
-    Object.keys(answers).forEach(function(key){
-      var entryId = ENTRY_IDS[key];
-      if(entryId && entryId.indexOf("PASTE_") !== 0){
-        body.append(entryId, answers[key]);
-      }
+    // Sheet Monkey handles CORS properly, so a plain fetch works from any
+    // domain — no hidden iframe, no entry IDs, no sign-in walls.
+    fetch(SHEETMONKEY_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(answers)
+    })
+    .then(function(){ submitting = false; })
+    .catch(function(err){
+      console.error("Maan ki Baat: submit failed", err);
+      submitting = false;
     });
-
-    // Submitted via a hidden iframe + a real <form> element, not fetch().
-    // This is a genuine native form POST — exactly what Google Forms is
-    // built to receive — so it avoids every fetch/CORS/redirect quirk
-    // entirely, rather than working around them.
-    var iframeName = "mkb-submit-frame";
-    var iframe = document.getElementById(iframeName);
-    if(!iframe){
-      iframe = document.createElement("iframe");
-      iframe.name = iframeName;
-      iframe.id = iframeName;
-      iframe.style.display = "none";
-      document.body.appendChild(iframe);
-    }
-
-    var form = document.createElement("form");
-    form.action = FORM_ACTION_URL;
-    form.method = "POST";
-    form.target = iframeName;
-    form.style.display = "none";
-
-    body.forEach(function(value, key){
-      var input = document.createElement("input");
-      input.type = "hidden";
-      input.name = key;
-      input.value = value;
-      form.appendChild(input);
-    });
-
-    document.body.appendChild(form);
-    form.submit();
-    setTimeout(function(){ form.remove(); }, 3000);
 
     submitting = false;
   }
